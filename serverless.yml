@@ -1,0 +1,139 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: tuneshman
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: notes-app
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: notes-app
+
+plugins:
+  - serverless-offline
+
+custom:
+  # Set the table name here so we can reference it in other places
+  tableName: ${self:service}-${self:provider.stage}-notes-table
+  allowedHeaders:
+    - Content-Type
+    - Accept
+    - Authorization
+    - Content-Length
+    - X-Amz-Security-Token
+    - X-Amz-User-Agent
+    - X-Amz-Date
+    - X-Api-Key
+    - app_user_id
+    - app_user_name
+
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-west-2
+  stage: prod
+  memorySize: 256
+  timeout: 6
+  endpointType: regional
+  environment:
+    NOTES_TABLE: ${self:custom.tableName}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:service}-${self:provider.environment.NOTES_TABLE}"
+
+functions:
+  addNote:
+    handler: api/addNote.handler
+    description: POST /note
+    events:
+      - http:
+          path: note
+          method: post
+          cors: 
+            origin: '*'
+            headers: ${self:custom.allowedHeaders}   
+  updateNote:
+    handler: api/updateNote.handler
+    description: PATCH /note
+    events:
+      - http:
+          path: note
+          method: patch
+          cors: 
+            origin: '*'
+            headers: ${self:custom.allowedHeaders}
+  deleteNote:
+    handler: api/deleteNote.handler
+    description: DELETE /note
+    events:
+      - http:
+          path: note/t/{timestamp}
+          method: delete
+          cors: 
+            origin: '*'
+            headers: ${self:custom.allowedHeaders}
+  getNotes:
+    handler: api/getNotes.handler
+    description: GET /notes
+    events:
+      - http:
+          path: notes
+          method: get
+          cors: 
+            origin: '*'
+            headers: ${self:custom.allowedHeaders}
+  getNote:
+    handler: api/getNote.handler
+    description: GET /note/n/{note_id}
+    events:
+      - http:
+          path: note/n/{note_id}
+          method: get
+          cors: 
+            origin: '*'
+            headers: ${self:custom.allowedHeaders}
+
+resources:
+  Resources:
+    NotesTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+          - AttributeName: note_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+          - IndexName: note_id-index
+            KeySchema:
+              - AttributeName: note_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+
+# Outputs section to verify table creation
+outputs:
+  NotesTableName:
+    Value: ${self:custom.tableName}
+    Export:
+      Name: NotesTableName
