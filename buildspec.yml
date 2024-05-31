@@ -15,7 +15,7 @@ phases:
     commands:
       - echo Deployment started on `date`
       - echo Deploying the Serverless Framework
-      - npx sls deploy -s $ENV_NAME
+      - npm run deploy
 
   post_build:
     commands:
