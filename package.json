@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "start": "sls offline start",
-    "deploy": "sls deploy prod"
+    "deploy": "sls deploy -s prod"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.515.0",
